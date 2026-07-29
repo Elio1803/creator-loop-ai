@@ -144,6 +144,13 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
           </select>
         </label>
 
+        {/*
+          Fallback manuel permanent : ne jamais retirer ce champ, meme apres
+          l'ajout d'un scraping automatique (ex. Apify). S'il se deconnecte
+          ou se desactive, ce champ doit rester le chemin de secours
+          immediatement disponible, sans devoir le redevelopper. Voir
+          CLAUDE.md a la racine du projet.
+        */}
         <label className="block text-sm">
           Colle tes dernières légendes ou sujets publiés
           <textarea
