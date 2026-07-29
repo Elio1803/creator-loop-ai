@@ -110,7 +110,7 @@ function requestFromBody(body: unknown): AuditRequest {
   try {
     handle = boundedString(body.handle, "handle", 60);
     niche = boundedString(body.niche, "niche", 120);
-    sujetsRecents = boundedStringArray(body.sujetsRecents, "sujetsRecents", 3, 10, 280);
+    sujetsRecents = boundedStringArray(body.sujetsRecents, "sujetsRecents", 3, 15, 600);
   } catch (error) {
     throw new HttpError(
       400,

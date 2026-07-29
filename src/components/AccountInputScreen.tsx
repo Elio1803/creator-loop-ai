@@ -10,8 +10,8 @@ import {
 } from '../types/domain'
 
 const MIN_SUJETS = 3
-const MAX_SUJETS = 10
-const MAX_SUJET_LENGTH = 280
+const MAX_SUJETS = 15
+const MAX_SUJET_LENGTH = 600
 
 export interface AccountInputScreenProps {
   onSubmit: (input: AccountInput) => void
@@ -149,7 +149,7 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
         </label>
 
         <label className="block text-sm">
-          Tes 5 à 10 derniers sujets ou légendes publiés (un par ligne)
+          Tes 5 à 15 derniers sujets ou légendes publiés (un par ligne)
           <textarea
             required
             rows={6}
