@@ -67,30 +67,6 @@ function rowToAudit(row: AuditRow): Audit {
   }
 }
 
-export async function loadExistingAudit(userId: string, handle: string, platform: string): Promise<Audit | null> {
-  if (!supabase) return null
-
-  const { data: account } = await supabase
-    .from('social_accounts')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('platform', platform)
-    .ilike('handle', handle)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (!account?.id) return null
-
-  const { data: audit } = await supabase
-    .from('audits')
-    .select(AUDIT_COLUMNS)
-    .eq('social_account_id', account.id)
-    .maybeSingle()
-
-  return audit ? rowToAudit(audit) : null
-}
-
 export async function loadLatestAudit(userId: string): Promise<Audit | null> {
   if (!supabase) return null
 
@@ -103,4 +79,14 @@ export async function loadLatestAudit(userId: string): Promise<Audit | null> {
     .maybeSingle()
 
   return audit ? rowToAudit(audit) : null
+}
+
+export async function saveLeadEmail(userId: string, email: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase n’est pas configuré.')
+
+  const { error } = await supabase
+    .from('creator_profiles')
+    .upsert({ user_id: userId, email }, { onConflict: 'user_id' })
+
+  if (error) throw error
 }

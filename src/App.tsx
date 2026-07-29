@@ -2,18 +2,22 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { AccountInputScreen } from './components/AccountInputScreen'
 import { AuditLoadingScreen } from './components/AuditLoadingScreen'
-import { AuthScreen } from './components/AuthScreen'
+import { EmailGateScreen } from './components/EmailGateScreen'
 import { DiagnosticReportScreen } from './components/DiagnosticReportScreen'
-import { generateAudit, loadExistingAudit, loadLatestAudit } from './lib/audit-api'
+import { generateAudit, loadLatestAudit, saveLeadEmail } from './lib/audit-api'
 import { isSupabaseConfigured, supabase } from './lib/supabase-client'
 import type { AccountInput, Audit } from './types/domain'
 
-type Screen = 'input' | 'loading' | 'diagnostic'
+type Screen = 'form' | 'analyzing' | 'email' | 'diagnostic'
+
+// Keeps the theatrical analysis steps visible even when the API answers fast.
+const MIN_ANALYSIS_DELAY_MS = 7000
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [screen, setScreen] = useState<Screen>('input')
+  const [screen, setScreen] = useState<Screen>('form')
+  const [handle, setHandle] = useState('')
   const [audit, setAudit] = useState<Audit | null>(null)
   const [submitError, setSubmitError] = useState('')
 
@@ -47,27 +51,48 @@ function App() {
   }, [session?.user.id])
 
   const handleSubmit = async (input: AccountInput) => {
-    if (!session) return
+    if (!supabase) return
     setSubmitError('')
-    setScreen('loading')
+    setHandle(input.handle)
+    setScreen('analyzing')
 
     try {
-      const existing = await loadExistingAudit(session.user.id, input.handle, input.platform)
-      const result = existing ?? (await generateAudit(input))
+      let activeSession = session
+      if (!activeSession) {
+        const { data, error } = await supabase.auth.signInAnonymously()
+        if (error) throw error
+        activeSession = data.session
+        setSession(data.session)
+      }
+
+      const minDelay = new Promise((resolve) => setTimeout(resolve, MIN_ANALYSIS_DELAY_MS))
+      const [result] = await Promise.all([generateAudit(input), minDelay])
       setAudit(result)
-      setScreen('diagnostic')
+      setScreen('email')
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : 'L’analyse a rencontré un problème. Réessaie.',
       )
-      setScreen('input')
+      setScreen('form')
     }
+  }
+
+  const handleEmailSubmit = async (email: string) => {
+    if (session) {
+      try {
+        await saveLeadEmail(session.user.id, email)
+      } catch {
+        // Non bloquant : on ne perd pas le diagnostic déjà généré pour un
+        // échec d'enregistrement de l'email.
+      }
+    }
+    setScreen('diagnostic')
   }
 
   const restart = () => {
     setAudit(null)
     setSubmitError('')
-    setScreen('input')
+    setScreen('form')
   }
 
   if (!authChecked) return null
@@ -80,9 +105,8 @@ function App() {
     )
   }
 
-  if (!session) return <AuthScreen />
-
-  if (screen === 'loading') return <AuditLoadingScreen />
+  if (screen === 'analyzing') return <AuditLoadingScreen handle={handle} />
+  if (screen === 'email') return <EmailGateScreen onSubmit={handleEmailSubmit} />
   if (screen === 'diagnostic' && audit) return <DiagnosticReportScreen audit={audit} onRestart={restart} />
 
   return <AccountInputScreen onSubmit={handleSubmit} submitError={submitError} />
