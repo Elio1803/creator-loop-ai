@@ -10,6 +10,8 @@ import {
 } from '../types/domain'
 
 const MIN_SUJETS = 3
+const MAX_SUJETS = 10
+const MAX_SUJET_LENGTH = 280
 
 export interface AccountInputScreenProps {
   onSubmit: (input: AccountInput) => void
@@ -23,6 +25,7 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
   const [rythme, setRythme] = useState<PublishingRhythm>('irregulier')
   const [sujetsText, setSujetsText] = useState('')
   const [validationError, setValidationError] = useState('')
+  const sujetsLineCount = sujetsText.split('\n').filter((line) => line.trim()).length
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -34,6 +37,19 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
     if (sujetsRecents.length < MIN_SUJETS) {
       setValidationError(
         `Ajoute au moins ${MIN_SUJETS} publications récentes pour un diagnostic fiable.`,
+      )
+      return
+    }
+    if (sujetsRecents.length > MAX_SUJETS) {
+      setValidationError(
+        `${MAX_SUJETS} sujets maximum (tu en as ${sujetsRecents.length}). Retire les lignes en trop.`,
+      )
+      return
+    }
+    const tooLongIndex = sujetsRecents.findIndex((line) => line.length > MAX_SUJET_LENGTH)
+    if (tooLongIndex !== -1) {
+      setValidationError(
+        `La ligne ${tooLongIndex + 1} dépasse ${MAX_SUJET_LENGTH} caractères. Raccourcis-la.`,
       )
       return
     }
@@ -143,6 +159,9 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
             style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
           />
+          <span className="mt-1 block text-xs" style={{ color: 'var(--muted)' }}>
+            {sujetsLineCount}/{MAX_SUJETS} lignes · {MAX_SUJET_LENGTH} caractères max par ligne
+          </span>
         </label>
 
         {(validationError || submitError) && (

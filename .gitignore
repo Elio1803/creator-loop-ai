@@ -25,3 +25,6 @@ dist-ssr
 
 # Supabase CLI local cache
 supabase/.temp
+
+# Local secrets, never committed
+supabase/.secrets.env
