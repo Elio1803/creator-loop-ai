@@ -4,7 +4,7 @@ import { AccountInputScreen } from './components/AccountInputScreen'
 import { AuditLoadingScreen } from './components/AuditLoadingScreen'
 import { AuthScreen } from './components/AuthScreen'
 import { DiagnosticReportScreen } from './components/DiagnosticReportScreen'
-import { generateAudit, loadExistingAudit } from './lib/audit-api'
+import { generateAudit, loadExistingAudit, loadLatestAudit } from './lib/audit-api'
 import { isSupabaseConfigured, supabase } from './lib/supabase-client'
 import type { AccountInput, Audit } from './types/domain'
 
@@ -31,6 +31,20 @@ function App() {
     })
     return () => subscription.subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!session) return
+    let cancelled = false
+    loadLatestAudit(session.user.id).then((latest) => {
+      if (!cancelled && latest) {
+        setAudit(latest)
+        setScreen('diagnostic')
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [session?.user.id])
 
   const handleSubmit = async (input: AccountInput) => {
     if (!session) return

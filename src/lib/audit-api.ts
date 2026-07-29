@@ -28,6 +28,45 @@ export async function generateAudit(input: AccountInput): Promise<Audit> {
   return invokeGenerateAudit(input)
 }
 
+const AUDIT_COLUMNS =
+  'id, score_progression, score_regularite, score_coherence, score_clarte, score_diversite, potentiel_amelioration, explication_regularite, explication_coherence, explication_clarte, explication_diversite, frein_principal, meilleur_levier, created_at'
+
+interface AuditRow {
+  id: string
+  score_progression: number
+  score_regularite: number
+  score_coherence: number
+  score_clarte: number
+  score_diversite: number
+  potentiel_amelioration: Audit['potentielAmelioration']
+  explication_regularite: string
+  explication_coherence: string
+  explication_clarte: string
+  explication_diversite: string
+  frein_principal: string
+  meilleur_levier: string
+  created_at: string
+}
+
+function rowToAudit(row: AuditRow): Audit {
+  return {
+    id: row.id,
+    scoreProgression: row.score_progression,
+    scoreRegularite: row.score_regularite,
+    scoreCoherence: row.score_coherence,
+    scoreClarte: row.score_clarte,
+    scoreDiversite: row.score_diversite,
+    potentielAmelioration: row.potentiel_amelioration,
+    explicationRegularite: row.explication_regularite,
+    explicationCoherence: row.explication_coherence,
+    explicationClarte: row.explication_clarte,
+    explicationDiversite: row.explication_diversite,
+    freinPrincipal: row.frein_principal,
+    meilleurLevier: row.meilleur_levier,
+    createdAt: row.created_at,
+  }
+}
+
 export async function loadExistingAudit(userId: string, handle: string, platform: string): Promise<Audit | null> {
   if (!supabase) return null
 
@@ -45,28 +84,23 @@ export async function loadExistingAudit(userId: string, handle: string, platform
 
   const { data: audit } = await supabase
     .from('audits')
-    .select(
-      'id, score_progression, score_regularite, score_coherence, score_clarte, score_diversite, potentiel_amelioration, explication_regularite, explication_coherence, explication_clarte, explication_diversite, frein_principal, meilleur_levier, created_at',
-    )
+    .select(AUDIT_COLUMNS)
     .eq('social_account_id', account.id)
     .maybeSingle()
 
-  if (!audit) return null
+  return audit ? rowToAudit(audit) : null
+}
 
-  return {
-    id: audit.id,
-    scoreProgression: audit.score_progression,
-    scoreRegularite: audit.score_regularite,
-    scoreCoherence: audit.score_coherence,
-    scoreClarte: audit.score_clarte,
-    scoreDiversite: audit.score_diversite,
-    potentielAmelioration: audit.potentiel_amelioration,
-    explicationRegularite: audit.explication_regularite,
-    explicationCoherence: audit.explication_coherence,
-    explicationClarte: audit.explication_clarte,
-    explicationDiversite: audit.explication_diversite,
-    freinPrincipal: audit.frein_principal,
-    meilleurLevier: audit.meilleur_levier,
-    createdAt: audit.created_at,
-  }
+export async function loadLatestAudit(userId: string): Promise<Audit | null> {
+  if (!supabase) return null
+
+  const { data: audit } = await supabase
+    .from('audits')
+    .select(AUDIT_COLUMNS)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return audit ? rowToAudit(audit) : null
 }
