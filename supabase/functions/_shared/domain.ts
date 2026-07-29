@@ -74,22 +74,35 @@ export function boundedString(
   return normalized;
 }
 
-export function boundedStringArray(
+function hasControlCharactersExceptNewline(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === 0x0a) continue;
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
+// Like boundedString, but preserves internal newlines/paragraph breaks —
+// used for free-form pasted content where line structure matters.
+export function boundedText(
   value: unknown,
   field: string,
-  minItems: number,
-  maxItems: number,
-  maxItemLength: number,
-): string[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${field} must be an array`);
+  maxLength: number,
+): string {
+  if (typeof value !== "string") {
+    throw new Error(`${field} must be a string`);
   }
-  if (value.length < minItems || value.length > maxItems) {
+
+  const normalized = value.trim().replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n");
+  if (normalized.length === 0 || normalized.length > maxLength) {
     throw new Error(`${field} has an invalid length`);
   }
-  return value.map((item, index) =>
-    boundedString(item, `${field}[${index}]`, maxItemLength)
-  );
+  if (hasControlCharactersExceptNewline(normalized)) {
+    throw new Error(`${field} contains control characters`);
+  }
+
+  return normalized;
 }
 
 export function integerInRange(

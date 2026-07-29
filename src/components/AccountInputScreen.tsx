@@ -9,9 +9,8 @@ import {
   type PublishingRhythm,
 } from '../types/domain'
 
-const MIN_SUJETS = 3
-const MAX_SUJETS = 15
-const MAX_SUJET_LENGTH = 600
+const MIN_CONTENU_LENGTH = 20
+const MAX_CONTENU_LENGTH = 4000
 
 export interface AccountInputScreenProps {
   onSubmit: (input: AccountInput) => void
@@ -23,33 +22,20 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
   const [niche, setNiche] = useState('')
   const [objectif, setObjectif] = useState<PublishingGoal>('audience')
   const [rythme, setRythme] = useState<PublishingRhythm>('irregulier')
-  const [sujetsText, setSujetsText] = useState('')
+  const [contenuBrut, setContenuBrut] = useState('')
   const [validationError, setValidationError] = useState('')
-  const sujetsLineCount = sujetsText.split('\n').filter((line) => line.trim()).length
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const sujetsRecents = sujetsText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
+    const trimmed = contenuBrut.trim()
 
-    if (sujetsRecents.length < MIN_SUJETS) {
-      setValidationError(
-        `Ajoute au moins ${MIN_SUJETS} publications récentes pour un diagnostic fiable.`,
-      )
+    if (trimmed.length < MIN_CONTENU_LENGTH) {
+      setValidationError('Colle un peu plus de contenu (quelques légendes ou sujets récents) pour un diagnostic fiable.')
       return
     }
-    if (sujetsRecents.length > MAX_SUJETS) {
+    if (trimmed.length > MAX_CONTENU_LENGTH) {
       setValidationError(
-        `${MAX_SUJETS} sujets maximum (tu en as ${sujetsRecents.length}). Retire les lignes en trop.`,
-      )
-      return
-    }
-    const tooLongIndex = sujetsRecents.findIndex((line) => line.length > MAX_SUJET_LENGTH)
-    if (tooLongIndex !== -1) {
-      setValidationError(
-        `La ligne ${tooLongIndex + 1} dépasse ${MAX_SUJET_LENGTH} caractères. Raccourcis-la.`,
+        `${MAX_CONTENU_LENGTH} caractères maximum (tu en as ${trimmed.length}). Raccourcis un peu.`,
       )
       return
     }
@@ -60,7 +46,7 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
       niche: niche.trim(),
       objectif,
       rythme,
-      sujetsRecents,
+      contenuBrut: trimmed,
     })
   }
 
@@ -149,18 +135,18 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
         </label>
 
         <label className="block text-sm">
-          Tes 5 à 15 derniers sujets ou légendes publiés (un par ligne)
+          Colle tes dernières légendes ou sujets publiés
           <textarea
             required
-            rows={6}
-            value={sujetsText}
-            onChange={(event) => setSujetsText(event.target.value)}
-            placeholder={'Comment j’organise ma semaine\nMa routine du matin en 5 étapes\n…'}
+            rows={8}
+            value={contenuBrut}
+            onChange={(event) => setContenuBrut(event.target.value)}
+            placeholder="Copie-colle en vrac plusieurs de tes dernières légendes Instagram (pas besoin de les mettre en forme, l’IA s’occupe de les séparer)."
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
             style={{ borderColor: 'var(--line)', background: 'var(--surface)' }}
           />
           <span className="mt-1 block text-xs" style={{ color: 'var(--muted)' }}>
-            {sujetsLineCount}/{MAX_SUJETS} lignes · {MAX_SUJET_LENGTH} caractères max par ligne
+            {contenuBrut.trim().length}/{MAX_CONTENU_LENGTH} caractères
           </span>
         </label>
 

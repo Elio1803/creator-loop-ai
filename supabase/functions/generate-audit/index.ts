@@ -7,7 +7,7 @@ import {
 } from "../_shared/auth.ts";
 import {
   boundedString,
-  boundedStringArray,
+  boundedText,
   type ImprovementPotential,
   IMPROVEMENT_POTENTIALS,
   integerInRange,
@@ -49,7 +49,7 @@ interface AuditRequest {
   niche: string;
   objectif: PublishingGoal;
   rythme: PublishingRhythm;
-  sujetsRecents: string[];
+  contenuBrut: string;
 }
 
 interface StoredAuditRow {
@@ -106,16 +106,23 @@ function requestFromBody(body: unknown): AuditRequest {
 
   let handle: string;
   let niche: string;
-  let sujetsRecents: string[];
+  let contenuBrut: string;
   try {
     handle = boundedString(body.handle, "handle", 60);
     niche = boundedString(body.niche, "niche", 120);
-    sujetsRecents = boundedStringArray(body.sujetsRecents, "sujetsRecents", 3, 15, 600);
+    contenuBrut = boundedText(body.contenuBrut, "contenuBrut", 4000);
   } catch (error) {
     throw new HttpError(
       400,
       "INVALID_FIELD",
       error instanceof Error ? error.message : "Invalid field.",
+    );
+  }
+  if (contenuBrut.length < 20) {
+    throw new HttpError(
+      400,
+      "CONTENT_TOO_SHORT",
+      "contenuBrut must contain at least 20 characters.",
     );
   }
 
@@ -125,7 +132,7 @@ function requestFromBody(body: unknown): AuditRequest {
     niche,
     objectif: body.objectif,
     rythme: body.rythme,
-    sujetsRecents,
+    contenuBrut,
   };
 }
 
@@ -169,13 +176,16 @@ Entrées :
 - niche : ${JSON.stringify(input.niche)}
 - objectif principal : ${JSON.stringify(GOAL_LABELS[input.objectif])}
 - rythme de publication déclaré : ${JSON.stringify(RHYTHM_LABELS[input.rythme])}
-- derniers sujets/légendes publiés : ${JSON.stringify(input.sujetsRecents)}
+- contenu collé par l'utilisateur (légendes/sujets de ses derniers posts, en vrac, séparés par des sauts de ligne, des tirets ou juste collés à la suite) : ${
+    JSON.stringify(input.contenuBrut)
+  }
 
 Consignes :
+- Commence par identifier mentalement les publications/sujets distincts dans ce texte brut, même s'ils ne sont pas parfaitement séparés.
 - Le score de progression représente la qualité et la cohérence de la stratégie actuelle, jamais une prédiction de vues ou de viralité.
-- N'invente aucune statistique précise (pas de "%", pas de nombre de vues) : reste qualitatif et fondé uniquement sur les sujets fournis.
+- N'invente aucune statistique précise (pas de "%", pas de nombre de vues) : reste qualitatif et fondé uniquement sur le contenu fourni.
 - Ton direct, précis, encourageant, jamais humiliant ni culpabilisant.
-- "freinPrincipal" et "meilleurLevier" doivent être concrets et actionnables, fondés sur les sujets fournis.
+- "freinPrincipal" et "meilleurLevier" doivent être concrets et actionnables, fondés sur le contenu fourni.
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant/après, sans markdown, format exact :
 {
@@ -258,7 +268,7 @@ export default {
             niche: input.niche,
             objectif: input.objectif,
             rythme: input.rythme,
-            sujets_recents: input.sujetsRecents,
+            contenu_brut: input.contenuBrut,
           })
           .select("id")
           .single();

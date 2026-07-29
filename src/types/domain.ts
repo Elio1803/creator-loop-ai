@@ -36,7 +36,7 @@ export interface AccountInput {
   niche: string
   objectif: PublishingGoal
   rythme: PublishingRhythm
-  sujetsRecents: string[]
+  contenuBrut: string
 }
 
 export interface Audit {
