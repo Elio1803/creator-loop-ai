@@ -1,24 +1,47 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import type { Session } from '@supabase/supabase-js'
-import { AccountInputScreen } from './components/AccountInputScreen'
-import { AuditLoadingScreen } from './components/AuditLoadingScreen'
-import { EmailGateScreen } from './components/EmailGateScreen'
 import { DiagnosticReportScreen } from './components/DiagnosticReportScreen'
 import { Screen } from './components/Screen'
 import { generateAudit, loadLatestAudit, saveLeadEmail } from './lib/audit-api'
 import { isSupabaseConfigured, supabase } from './lib/supabase-client'
 import type { AccountInput, Audit } from './types/domain'
 
-type Screen = 'form' | 'analyzing' | 'email' | 'diagnostic'
+// DiagnosticReportScreen stays eager: it's the very first thing a returning
+// visitor sees. Everything only a new visitor or an in-progress submission
+// needs is split into its own chunk instead of bloating that fast path.
+const LandingPage = lazy(() => import('./components/LandingPage').then((m) => ({ default: m.LandingPage })))
+const AccountInputScreen = lazy(() =>
+  import('./components/AccountInputScreen').then((m) => ({ default: m.AccountInputScreen })),
+)
+const AuditLoadingScreen = lazy(() =>
+  import('./components/AuditLoadingScreen').then((m) => ({ default: m.AuditLoadingScreen })),
+)
+const EmailGateScreen = lazy(() =>
+  import('./components/EmailGateScreen').then((m) => ({ default: m.EmailGateScreen })),
+)
+
+type ScreenName = 'form' | 'analyzing' | 'email' | 'diagnostic'
 
 // Keeps the theatrical analysis steps visible even when the API answers fast.
 const MIN_ANALYSIS_DELAY_MS = 7000
 
+function LoadingSpinner() {
+  return (
+    <main className="flex min-h-screen items-center justify-center">
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+        style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}
+        aria-hidden="true"
+      />
+    </main>
+  )
+}
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [screen, setScreen] = useState<Screen>('form')
+  const [screen, setScreen] = useState<ScreenName>('form')
   const [handle, setHandle] = useState('')
   const [audit, setAudit] = useState<Audit | null>(null)
   const [submitError, setSubmitError] = useState('')
@@ -110,7 +133,7 @@ function App() {
     setScreen('form')
   }
 
-  if (!authChecked) return null
+  if (!authChecked) return <LoadingSpinner />
 
   if (!isSupabaseConfigured) {
     return (
@@ -120,29 +143,38 @@ function App() {
     )
   }
 
-  return (
-    <AnimatePresence mode="wait">
-      {screen === 'analyzing' && (
-        <Screen key="analyzing">
-          <AuditLoadingScreen handle={handle} />
-        </Screen>
-      )}
-      {screen === 'email' && (
-        <Screen key="email">
-          <EmailGateScreen score={audit?.scoreProgression ?? 0} onSubmit={handleEmailSubmit} />
-        </Screen>
-      )}
-      {screen === 'diagnostic' && audit && (
-        <Screen key="diagnostic">
-          <DiagnosticReportScreen audit={audit} onRestart={restart} />
-        </Screen>
-      )}
-      {screen === 'form' && (
-        <Screen key="form">
+  // Only the entry form lives inside the marketing page; once analysis
+  // starts, the flow takes over the full screen (same as before).
+  if (screen === 'form') {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <LandingPage>
           <AccountInputScreen onSubmit={handleSubmit} submitError={submitError} />
-        </Screen>
-      )}
-    </AnimatePresence>
+        </LandingPage>
+      </Suspense>
+    )
+  }
+
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AnimatePresence mode="wait">
+        {screen === 'analyzing' && (
+          <Screen key="analyzing">
+            <AuditLoadingScreen handle={handle} />
+          </Screen>
+        )}
+        {screen === 'email' && (
+          <Screen key="email">
+            <EmailGateScreen score={audit?.scoreProgression ?? 0} onSubmit={handleEmailSubmit} />
+          </Screen>
+        )}
+        {screen === 'diagnostic' && audit && (
+          <Screen key="diagnostic">
+            <DiagnosticReportScreen audit={audit} onRestart={restart} />
+          </Screen>
+        )}
+      </AnimatePresence>
+    </Suspense>
   )
 }
 

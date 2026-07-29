@@ -55,3 +55,8 @@ body {
 #root {
   min-height: 100vh;
 }
+
+.mask-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
