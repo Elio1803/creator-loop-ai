@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import type { Session } from '@supabase/supabase-js'
 import { AccountInputScreen } from './components/AccountInputScreen'
 import { AuditLoadingScreen } from './components/AuditLoadingScreen'
 import { EmailGateScreen } from './components/EmailGateScreen'
 import { DiagnosticReportScreen } from './components/DiagnosticReportScreen'
+import { Screen } from './components/Screen'
 import { generateAudit, loadLatestAudit, saveLeadEmail } from './lib/audit-api'
 import { isSupabaseConfigured, supabase } from './lib/supabase-client'
 import type { AccountInput, Audit } from './types/domain'
@@ -57,17 +59,30 @@ function App() {
     setScreen('analyzing')
 
     try {
-      let activeSession = session
-      if (!activeSession) {
+      if (!session) {
         const { data, error } = await supabase.auth.signInAnonymously()
         if (error) throw error
-        activeSession = data.session
         setSession(data.session)
       }
 
       const minDelay = new Promise((resolve) => setTimeout(resolve, MIN_ANALYSIS_DELAY_MS))
-      const [result] = await Promise.all([generateAudit(input), minDelay])
-      setAudit(result)
+      let resultPromise = generateAudit(input)
+      try {
+        const [result] = await Promise.all([resultPromise, minDelay])
+        setAudit(result)
+      } catch (error) {
+        // A cached session can outlive its server-side user (e.g. token
+        // expired, or the anonymous identity no longer exists). Retry once
+        // with a fresh anonymous session instead of surfacing a raw auth error.
+        const isAuthError = error instanceof Error && /token|auth/i.test(error.message)
+        if (!isAuthError) throw error
+
+        const { data, error: signInError } = await supabase.auth.signInAnonymously()
+        if (signInError) throw signInError
+        setSession(data.session)
+        resultPromise = generateAudit(input)
+        setAudit(await resultPromise)
+      }
       setScreen('email')
     } catch (error) {
       setSubmitError(
@@ -105,11 +120,30 @@ function App() {
     )
   }
 
-  if (screen === 'analyzing') return <AuditLoadingScreen handle={handle} />
-  if (screen === 'email') return <EmailGateScreen onSubmit={handleEmailSubmit} />
-  if (screen === 'diagnostic' && audit) return <DiagnosticReportScreen audit={audit} onRestart={restart} />
-
-  return <AccountInputScreen onSubmit={handleSubmit} submitError={submitError} />
+  return (
+    <AnimatePresence mode="wait">
+      {screen === 'analyzing' && (
+        <Screen key="analyzing">
+          <AuditLoadingScreen handle={handle} />
+        </Screen>
+      )}
+      {screen === 'email' && (
+        <Screen key="email">
+          <EmailGateScreen score={audit?.scoreProgression ?? 0} onSubmit={handleEmailSubmit} />
+        </Screen>
+      )}
+      {screen === 'diagnostic' && audit && (
+        <Screen key="diagnostic">
+          <DiagnosticReportScreen audit={audit} onRestart={restart} />
+        </Screen>
+      )}
+      {screen === 'form' && (
+        <Screen key="form">
+          <AccountInputScreen onSubmit={handleSubmit} submitError={submitError} />
+        </Screen>
+      )}
+    </AnimatePresence>
+  )
 }
 
 export default App

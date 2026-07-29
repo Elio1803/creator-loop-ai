@@ -1,4 +1,6 @@
+import { motion } from 'framer-motion'
 import { type FormEvent, useState } from 'react'
+import { EASE } from '../lib/motion'
 import {
   GOAL_LABELS,
   PUBLISHING_GOALS,
@@ -24,6 +26,14 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
   const [rythme, setRythme] = useState<PublishingRhythm>('irregulier')
   const [contenuBrut, setContenuBrut] = useState('')
   const [validationError, setValidationError] = useState('')
+
+  const filledCount = [
+    handle.trim().length >= 2,
+    niche.trim().length >= 3,
+    contenuBrut.trim().length >= MIN_CONTENU_LENGTH,
+  ].filter(Boolean).length
+  const progress = filledCount / 3
+  const valid = filledCount === 3
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -156,13 +166,16 @@ export function AccountInputScreen({ onSubmit, submitError }: AccountInputScreen
           </p>
         )}
 
-        <button
+        <motion.button
           type="submit"
+          animate={{ opacity: 0.55 + progress * 0.45 }}
+          whileTap={valid ? { scale: 0.98 } : {}}
+          transition={{ duration: 0.35, ease: EASE }}
           className="w-full rounded-lg px-4 py-3 text-sm font-medium text-white"
           style={{ background: 'var(--accent)' }}
         >
           Analyser mon compte
-        </button>
+        </motion.button>
       </form>
     </main>
   )
