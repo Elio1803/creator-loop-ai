@@ -1,0 +1,4 @@
+project_id = "creator-loop-ai"
+
+[functions.generate-audit]
+verify_jwt = true
